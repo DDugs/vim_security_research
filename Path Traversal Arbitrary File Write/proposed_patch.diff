@@ -1,0 +1,42 @@
+--- a/autoload/vimball.vim
++++ b/autoload/vimball.vim
+@@ -266,6 +266,24 @@
+    let fname   = substitute(getline(linenr),'\t\[\[\[1$','','')
+    let fname   = substitute(fname,'\\','/','g')
+ 
++   " -- Security fix: Prevent path traversal via embedded archive filenames.
++   " -- Analogous fix applied to zip.vim (2025-07-12) and tar.vim.
++   " -- Stage 1: Reject any fname containing ../ sequences or absolute paths.
++   if fname =~# '\.\.\(/\|$\)' || fname =~# '^/'
++    call vimball#ShowMesg(s:WARNING,
++      \ '(Vimball#Vimball) path traversal detected in <'.fname.'> -- skipping')
++    let linenr = linenr + fsize + 2
++    continue
++   endif
++   " -- Stage 2: After resolving the full path, verify it stays under home.
++   " -- This catches edge cases like home/a/../../outside that pass stage 1.
++   let s:fnamepath_check = simplify(home.'/'.fname)
++   let s:home_normalized = substitute(home, '\\', '/', 'g')
++   if s:fnamepath_check !~# '^\V'.escape(s:home_normalized, '\')
++    call vimball#ShowMesg(s:WARNING,
++      \ '(Vimball#Vimball) path escapes home dir in <'.fname.'> -- skipping')
++    let linenr = linenr + fsize + 2
++    continue
++   endif
++
+    let fsize   = substitute(getline(linenr+1),'^\(\d\+\).\{-}$','\1','')+0
+    let fenc    = substitute(getline(linenr+1),'^\d\+\s*\(\S\{-}\)$','\1','')
+    let filecnt = filecnt + 1
+@@ -335,6 +353,12 @@
+     " write tab to file
+     if a:really
+      let fnamepath= home."/".fname
++    " -- Security: final containment assertion before write
++    if simplify(fnamepath) !~# '^\V'.escape(substitute(home,'\\','/','g'),'\')
++     call vimball#ShowMesg(s:ERROR,
++       \ '(Vimball#Vimball) SECURITY: write path escaped home -- aborting')
++     call s:ChgDir(curdir) | call vimball#RestoreSettings() | return
++    endif
+ 	if fenc != ""
+ 	 exe "silent w! ++enc=".fnameescape(fenc)." ".fnameescape(fnamepath)
+ 	else

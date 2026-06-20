@@ -1,0 +1,43 @@
+=================================================================
+==552==ERROR: AddressSanitizer: global-buffer-overflow on address 0x555769beef80 at pc 0x7fe0903fb260 bp 0x7ffce309c3b0 sp 0x7ffce309bb58
+WRITE of size 202 at 0x555769beef80 thread T0
+    #0 0x7fe0903fb25f in strcat ../../../../src/libsanitizer/asan/asan_interceptors.cpp:515
+    #1 0x555769be4968 in main /tmp/vim03_ccfilter.c:254
+    #2 0x7fe08fb071c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: 8e9fd827446c24067541ac5390e6f527fb5947bb)
+    #3 0x7fe08fb0728a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: 8e9fd827446c24067541ac5390e6f527fb5947bb)
+    #4 0x555769be33e4 in _start (/tmp/ccfilter_asan+0x53e4) (BuildId: 213a4f671bf44c489b770bc090a3b6bb3f457045)
+
+0x555769beef80 is located 0 bytes after global variable 'Reason' defined in '/tmp/vim03_ccfilter.c:33:13' (0x555769bee780) of size 2048
+SUMMARY: AddressSanitizer: global-buffer-overflow ../../../../src/libsanitizer/asan/asan_interceptors.cpp:515 in strcat
+Shadow bytes around the buggy address:
+  0x555769beed00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769beed80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769beee00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769beee80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769beef00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+=>0x555769beef80:[f9]f9 f9 f9 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769bef000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769bef080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769bef100: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769bef180: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x555769bef200: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==552==ABORTING

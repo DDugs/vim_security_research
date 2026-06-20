@@ -1,0 +1,44 @@
+--- a/autoload/zip.vim
++++ b/autoload/zip.vim
+@@ -168,13 +168,15 @@ function! s:ZipExtractFilePS(zipfile, fname)
+   " Extract a single file from an archive
+   " Equivalent to `unzip -o zipfile fname`
+   if a:fname =~ '/'
+     call s:Mess('Error', "***error*** PowerShell cannot extract files in archive subfolders")
+     return ':'
+   endif
++  " Security: reject filenames containing PowerShell metacharacters
++  if a:fname =~# '[''`;${}|&<>()]'
++    call s:Mess('Error', "***error*** (zip#Extract) unsafe filename for PowerShell extraction: " . a:fname)
++    return ':'
++  endif
+   let cmds = [
+         \ '$zip = [System.IO.Compression.ZipFile]::OpenRead(' . s:Escape(a:zipfile, 1) . ');',
+-        \ '$fileEntry = $zip.Entries | Where-Object { $_.FullName -eq ' . a:fname . ' };',
++        \ '$fileEntry = $zip.Entries | Where-Object { $_.FullName -eq ' . s:Escape(a:fname, 1) . ' };',
+         \ '$stream = $fileEntry.Open();',
+-        \ '$fileStream = [System.IO.File]::Create(' . a:fname . ');',
++        \ '$fileStream = [System.IO.File]::Create(' . s:Escape(a:fname, 1) . ');',
+         \ '$stream.CopyTo($fileStream);',
+         \ '$fileStream.Close();',
+         \ '$stream.Close();',
+         \ '$zip.Dispose()'
+         \ ]
+   return 'pwsh -NoProfile -Command ' . s:Escape(join(cmds, ' '), 1)
+ endfunction
+
+Notes:
+------
+1. PRIMARY FIX: Lines 177 and 179 — replace bare `a:fname` with `s:Escape(a:fname, 1)`.
+   This mirrors the exact escaping already present in the sibling function s:ZipReadPS()
+   at lines 147 and 149. This is a one-token change per line.
+
+2. DEFENSE-IN-DEPTH: Added metacharacter guard (lines 173-176) that rejects filenames
+   containing PS special characters (' ` ; $ { } | & < > ( )) before they reach
+   the command construction. Belt-and-suspenders approach.
+
+3. The s:Escape() function in zip.vim wraps the value in single quotes and escapes
+   any embedded single quotes, producing:  'value with ''embedded'' quotes'
+   This is correct PowerShell string quoting and neutralizes all injection vectors.
+
+Reference: s:ZipReadPS() (lines 139-156) for the correctly-escaped counterpart.

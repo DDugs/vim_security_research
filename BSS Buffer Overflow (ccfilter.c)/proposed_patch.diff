@@ -1,0 +1,69 @@
+--- a/tools/ccfilter.c
++++ b/tools/ccfilter.c
+@@ -14,6 +14,7 @@
+ #include <ctype.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <stddef.h>
+ #include <unistd.h>
+ 
+ #define LINELENGTH 2048
+@@ -248,10 +248,16 @@ int main(int argc, char *argv[])
+ 
+ 	    stay = (echogets(Line2, echo) != NULL);
+ 	    while ( stay && (Line2[0] == '|') )
+-	      { for (p=&Line2[2]; (*p) && (isspace((unsigned char)*p)); p++);
+-		strcat( Reason, ": " );
+-		strcat( Reason, p );
+-		Line2[0] = 0;
++	      { size_t reason_len, remaining;
++		for (p=&Line2[2]; (*p) && (isspace((unsigned char)*p)); p++);
++		/* Security fix: use strncat with remaining-capacity check */
++		/* Prevents BSS buffer overflow via unbounded strcat accumulation */
++		reason_len = strlen(Reason);
++		remaining  = LINELENGTH - reason_len - 1;
++		if (remaining > 2)
++		  { strncat( Reason, ": ", 2 );
++		    remaining -= 2;
++		    strncat( Reason, p, remaining );
++		  }
++		Line2[0] = 0;
+ 		stay = (echogets(Line2, echo) != NULL);
+ 	      }
+ 	    prefetch = 1;
+@@ -289,10 +295,16 @@ int main(int argc, char *argv[])
+ 	  case COMPILER_IRIX:
+             /* ... (setup code) ... */
+ 	    if (ok)
+-	      { strcat( Line, "\n" );
+-		strcat( Line, Line2 );
++	      { /* Security fix: identical pattern in IRIX branch */
++		size_t line_len  = strlen(Line);
++		size_t remaining = LINELENGTH - line_len - 1;
++		if (remaining > 1)
++		  { strncat( Line, "\n", 1 );
++		    remaining -= 1;
++		    strncat( Line, Line2, remaining );
++		  }
+ 	      }
+ 	    break;
+
+Notes:
+------
+1. COMPILER_ATT fix (lines 253-254):
+   - Calculates remaining capacity before each append using strlen(Reason)
+   - Uses strncat() with the exact remaining bytes — never writes past Reason[LINELENGTH-1]
+   - If buffer is full (remaining <= 2), the continuation line is silently truncated
+     (acceptable: the error reason is partially reported rather than crashing)
+
+2. COMPILER_IRIX fix (lines 293-296):
+   - Identical fix applied to the strcat(Line, "\n") + strcat(Line, Line2) pair
+   - Same bounds-check pattern: calculate remaining, strncat with limit
+
+3. Alternative fix: replace Reason with a dynamically-allocated buffer that grows
+   on demand (realloc). This would be more correct for very long error messages
+   but is a larger refactor. The strncat fix is minimal and safe.
+
+4. Additional hardening (not in this diff): add an explicit width limit to the
+   sscanf format string for Reason: change "%[^\n]" to "%2047[^\n]" to prevent
+   the initial fill from itself overflowing.
